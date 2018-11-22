@@ -1,0 +1,83 @@
+---
+title: "ISOM5610 HW2"
+author: "Team 1"
+date: "22 November 2018"
+output: html_document
+---
+
+```{r}
+setwd("~/MSBA/ISOM5610/HW2")
+library(readxl)
+bluestem_0 <- as.data.frame(read_excel("bluestem.xls", sheet=1))
+bluestem_0[,2:9] <- lapply(bluestem_0[,2:9], factor)
+colnames(bluestem_0)[1] <- "Sales"
+colnames(bluestem_0)[10] <- "Index"
+summary(bluestem_0)
+```
+
+#Data Exploration
+
+```{r}
+#data processing
+bluestem_exp <- bluestem_0
+bluestem_exp$Weekday <- factor(names(bluestem_exp[3:9])[max.col(bluestem_exp[3:9])], levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+bluestem_exp$desSales <- bluestem_exp$Sales/bluestem_exp$Index
+
+#Different Nightly Index for different Weekdays
+library(ggplot2)
+index_table <- unique(bluestem_exp[10:11])
+ggplot(index_table, aes(x = Weekday, y = Index)) + geom_bar(stat = "identity") + geom_text(aes(label = Index), vjust=-0.6) + labs(y="Nightly Index")
+
+#Sales on different Weekdays
+ggplot(bluestem_exp, aes(x = Weekday, y = Sales)) + geom_boxplot()
+
+#Sales with or without promotions
+ggplot(bluestem_exp, aes(x = Promotion, y = Sales)) + geom_boxplot()
+
+#De-seasonalized Sales with or without promotions
+ggplot(bluestem_exp, aes(x = Promotion, y = desSales)) + geom_boxplot() + labs(y="Sales/Nightly Index")
+```
+
+## Additive Model
+A regression model using dummy variables to account for the fixed Weekday¡¯s effect.
+
+```{r}
+bluestem_1 <- bluestem_exp[1:8]
+str(bluestem_1) #Sunday as the base dummy
+add.fit=lm(formula = 'Sales ~ .', data = bluestem_1)
+summary(add.fit)
+add.fit$coefficients[2]
+```
+**Answer = 593.5**
+
+```{r}
+# Checking model assumptions
+par(mfrow=c(2,2))
+plot(add.fit)
+# Checking multicollinearity for independent variables
+library(HH)
+vif(add.fit)
+```
+
+## Multiplicative Model
+The nightly index expresses each Weekday¡¯s effect on the popularity.
+
+```{r}
+mtp.fit=lm(formula = 'desSales ~ Promotion', data = bluestem_exp)
+summary(mtp.fit)
+# The coefficient of Promotion stands for the boost in revenues without Weekday effect. Such boost would be amplified by the Nightly Index for Saturday.
+mtp.fit$coefficients[2] * index_table$Index[which(index_table$Weekday=="Saturday")]
+```
+**Answer = 801.4345**
+
+```{r}
+# Checking model assumptions
+par(mfrow=c(2,2))
+plot(mtp.fit)
+```
+
+## Comparison
+**Model assumptions:**  
+[to be optimised - the residual Q-Q plot for the multiplicative model is not linear...]  
+**Business perspective:**   
+The multiplicative model is better than the additive model. The additive model assumes that promotions have same boost effect on all weekdays, which is not the case. Promotional events should have better results with larger customer traffic. This is better addressed by the multiplicative model.
