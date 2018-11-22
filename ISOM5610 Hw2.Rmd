@@ -39,7 +39,7 @@ ggplot(bluestem_exp, aes(x = Promotion, y = desSales)) + geom_boxplot() + labs(y
 ```
 
 ## Additive Model
-A regression model using dummy variables to account for the fixed Weekday¡¯s effect.
+A regression model using dummy variables to account for the fixed Weekday??s effect.
 
 ```{r}
 bluestem_1 <- bluestem_exp[1:8]
@@ -60,7 +60,7 @@ vif(add.fit)
 ```
 
 ## Multiplicative Model
-The nightly index expresses each Weekday¡¯s effect on the popularity. 
+The nightly index expresses each Weekday??s effect on the popularity. 
 
 #### 1. Use De-seasonalized Sales.
 
@@ -99,3 +99,6 @@ mtp.fit.2$coefficients[2] * ((index_table$Index[which(index_table$Weekday=="Satu
 The additive model is much better in terms of R-square and residual plots. The multiplicative model using log(De-seasonalized Sales) is better than the one directly using De-seasonalized Sales.  
 **Business perspective:**   
 The multiplicative model is better than the additive model. The additive model assumes that promotions have same boost effect on all weekdays, which is not the case. Promotional events should have better results with larger customer traffic. This is better addressed by the multiplicative model.
+
+**huhuhuhubert**
+just wanna try to modify
