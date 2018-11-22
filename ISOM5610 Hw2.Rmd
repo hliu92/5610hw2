@@ -19,7 +19,7 @@ summary(bluestem_0)
 
 ```{r}
 #data processing
-bluestem_exp <- bluestem_0
+bluestem_exp <- bluestem_0 #data for exploration
 bluestem_exp$Weekday <- factor(names(bluestem_exp[3:9])[max.col(bluestem_exp[3:9])], levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
 bluestem_exp$desSales <- bluestem_exp$Sales/bluestem_exp$Index
 
@@ -60,7 +60,9 @@ vif(add.fit)
 ```
 
 ## Multiplicative Model
-The nightly index expresses each Weekday¡¯s effect on the popularity.
+The nightly index expresses each Weekday¡¯s effect on the popularity. 
+
+#### 1. Use De-seasonalized Sales.
 
 ```{r}
 mtp.fit=lm(formula = 'desSales ~ Promotion', data = bluestem_exp)
@@ -76,8 +78,24 @@ par(mfrow=c(2,2))
 plot(mtp.fit)
 ```
 
+#### 2. Try log(De-seasonalized Sales)
+
+```{r}
+bluestem_exp$log_desSales <- log(bluestem_exp$desSales)
+mtp.fit.2=lm(formula = 'log_desSales ~ Promotion', data = bluestem_exp)
+summary(mtp.fit.2)
+# Checking model assumptions
+par(mfrow=c(2,2))
+plot(mtp.fit.2)
+mtp.fit.2$coefficients[2]
+# Promotion increases sales without Weekday effect by 52.284%. Now factor in the Saturday effect in terms of % increase:
+mtp.fit.2$coefficients[2] * ((index_table$Index[which(index_table$Weekday=="Saturday")] - 1)/1)
+```
+**Answer = 97.77094%**
+
 ## Comparison
+
 **Model assumptions:**  
-[to be optimised - the residual Q-Q plot for the multiplicative model is not linear...]  
+The additive model is much better in terms of R-square and residual plots. The multiplicative model using log(De-seasonalized Sales) is better than the one directly using De-seasonalized Sales.  
 **Business perspective:**   
 The multiplicative model is better than the additive model. The additive model assumes that promotions have same boost effect on all weekdays, which is not the case. Promotional events should have better results with larger customer traffic. This is better addressed by the multiplicative model.
