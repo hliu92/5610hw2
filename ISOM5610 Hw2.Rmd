@@ -34,23 +34,30 @@ bluestem_exp$desSales <- bluestem_exp$Sales/bluestem_exp$Index
 #Different Nightly Index for different Weekdays
 library(ggplot2)
 index_table <- unique(bluestem_exp[10:11])
-ggplot(index_table, aes(x = Weekday, y = Index)) + geom_bar(stat = "identity") + geom_text(aes(label = Index), vjust=-0.6) + labs(y="Nightly Index")
+ggplot(index_table, aes(x = Weekday, y = Index)) + 
+    geom_bar(stat = "identity") + 
+    geom_text(aes(label = Index), vjust=-0.6) + 
+    labs(y="Nightly Index")
 
 #Sales on different Weekdays
-ggplot(bluestem_exp, aes(x = Weekday, y = Sales)) + geom_boxplot()
-+ geom_point(data=subset(bluestem_exp, Promotion==1), mapping=aes(color=Promotion), size=3) 
-+ labs(color="") 
-+ scale_color_manual(labels = "With Promotion", values="red")
+ggplot(bluestem_exp, aes(x = Weekday, y = Sales)) + 
+    geom_boxplot() + 
+    geom_point(data=subset(bluestem_exp, Promotion==1), mapping=aes(color=Promotion), size=3) + 
+    labs(color="") + 
+    scale_color_manual(labels = "With Promotion", values="red")
 
 #Sales with or without promotions
-ggplot(bluestem_exp, aes(x = Promotion, y = Sales)) + geom_boxplot()
+ggplot(bluestem_exp, aes(x = Promotion, y = Sales)) +
+    geom_boxplot()
 
 #De-seasonalized Sales with or without promotions
-ggplot(bluestem_exp, aes(x = Promotion, y = desSales)) + geom_boxplot() + labs(y="Sales/Nightly Index")
+ggplot(bluestem_exp, aes(x = Promotion, y = desSales)) + 
+    geom_boxplot() + 
+    labs(y="Sales/Nightly Index")
 ```
 
 ## Additive Model
-A regression model using dummy variables to account for the fixed WeekdayÂ¡Â¯s effect.
+A regression model using dummy variables to account for the fixed Weekday¡¯s effect.
 
 ```{r}
 bluestem_1 <- bluestem_exp[1:8]
@@ -71,7 +78,7 @@ vif(add.fit)
 ```
 
 ## Multiplicative Model
-The nightly index expresses each WeekdayÂ¡Â¯s effect on the popularity. 
+The nightly index expresses each Weekday¡¯s effect on the popularity. 
 
 #### 1. Use De-seasonalized Sales.
 
