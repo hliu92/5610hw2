@@ -33,10 +33,6 @@ for (lp in 1:249){
 }
 bluestem$timeindex <- timeindex 
 
-#data processing
-
-bluestem$desSales <- bluestem$Sales/bluestem$Index
-
 #See if there is linear trend along the time line
 
 fit0 <- lm(Sales ~ timeindex,data=bluestem)
@@ -57,6 +53,10 @@ bluestem$Index <- bluestem$Index*7/sum(index_table[,1])
 #Different Nightly Index for different Weekdays
 
 index_table <- unique(bluestem[names(bluestem) %in% c("Weekday", "Index")])
+#data processing
+
+bluestem$desSales <- bluestem$Sales/bluestem$Index
+
 
 library(ggplot2)
 library(RColorBrewer)
@@ -91,32 +91,22 @@ A regression model using dummy variables to account for the fixed Weekday??s eff
 
 ```{r}
 ## in this chunk, ".t" means timeindex is added
-
-bluestem_1 <- bluestem[1:8]
-bluestem_1.t <- bluestem_1
-bluestem_1.t $ timeindex <- bluestem$timeindex
+bluestem_1 <- bluestem[,c(1:8,12)]
 str(bluestem_1) #Sunday as the base dummy
-add.fit <- lm(formula = 'Sales ~ .', data = bluestem_1)
-add.fit.t <- lm(formula = 'Sales ~ .', data = bluestem_1.t)
+add.fit <- lm(Sales ~ ., data = bluestem_1)
 summary(add.fit)
-summary(add.fit.t)
 add.fit$coefficients[2]
-add.fit.t$coefficients[2]
-
 ```
-**Answer = 593.5**
 
-** After the time index is added, Answer = 604.73 **
+**After the time index is added, Answer = 604.824**
 
 ```{r}
 # Checking model assumptions
 par(mfrow=c(2,2))
 plot(add.fit)
-plot(add.fit.t)
 # Checking multicollinearity for independent variables
 library(HH)
 vif(add.fit)
-vif(add.fit.t)
 ```
 
 ## Multiplicative Model
@@ -125,15 +115,27 @@ The nightly index expresses each Weekday??s effect on the popularity.
 #### 1. Use De-seasonalized Sales.
 
 ```{r}
-mtp.fit=lm(formula = 'desSales ~ Promotion', data = bluestem)
-summary(mtp.fit)
+mtp.fit1 <- lm(desSales ~ Promotion + timeindex, data = bluestem)
+summary(mtp.fit1)
 
-mtp.fit.t=lm(formula = 'desSales ~ Promotion + timeindex', data = bluestem)
-summary(mtp.fit)
 # The coefficient of Promotion stands for the boost in revenues without Weekday effect. Such boost would be amplified by the Nightly Index for Saturday.
-mtp.fit$coefficients[2] * index_table$Index[which(index_table$Weekday=="Saturday")]
+mtp.fit1$coefficients[2] * index_table$Index[which(index_table$Weekday=="Saturday")]
+
 ```
-**Answer = 801.4345**
+
+```{r}
+prolag1 <- rep(0,249)
+prolag1[c(108,120)] <- 1
+prolag2 <- rep(0,249)
+prolag2[c(54,97,109)] <- 1
+bluestem$prolag1 <- prolag1
+bluestem$prolag2 <- prolag2
+mtp.fit2 <- lm(desSales ~ Promotion + timeindex + prolag1, data = bluestem)
+summary(mtp.fit2)
+mtp.fit3 <- lm(desSales ~ Promotion + timeindex + prolag1 + prolag2, data = bluestem)
+summary(mtp.fit3)
+```
+
 
 ```{r}
 # Checking model assumptions
@@ -145,8 +147,17 @@ plot(mtp.fit)
 
 ```{r}
 bluestem$log_desSales <- log(bluestem$desSales)
-mtp.fit.2=lm(formula = 'log_desSales ~ Promotion', data = bluestem)
-summary(mtp.fit.2)
+mtp.fit4 <- lm(log_desSales ~ Promotion+timeindex, data = bluestem)
+summary(mtp.fit4)
+
+
+mtp.fit5 <- lm(log_desSales ~ Promotion+timeindex+prolag1, data = bluestem)
+summary(mtp.fit5)
+
+
+mtp.fit6 <- lm(log_desSales ~ Promotion+timeindex+prolag1+prolag2, data = bluestem)
+summary(mtp.fit6)
+
 # Checking model assumptions
 par(mfrow=c(2,2))
 plot(mtp.fit.2)
