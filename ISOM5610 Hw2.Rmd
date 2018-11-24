@@ -2,88 +2,133 @@
 title: "ISOM5610 HW2"
 author: "Team 1"
 date: "22 November 2018"
-output: html_document
+output: pdf_document
 ---
 
 ```{r}
 setwd("~/MSBA/ISOM5610/HW2")
 library(readxl)
-bluestem_0 <- as.data.frame(read_excel("bluestem.xls", sheet=1))
-bluestem_0[,2:9] <- lapply(bluestem_0[,2:9], factor)
-colnames(bluestem_0)[1] <- "Sales"
-colnames(bluestem_0)[10] <- "Index"
-summary(bluestem_0)
+bluestem <- as.data.frame(read_excel("bluestem.xls", sheet=1))
+bluestem[,2:9] <- lapply(bluestem[,2:9], factor)
+colnames(bluestem)[1] <- "Sales"
+colnames(bluestem)[10] <- "Index"
+summary(bluestem)
 ```
 
-#Data Exploration
-```{r}
-#See if there is linear trend along the time line
-#plot(bluestem$`Total Food & Liquor Sales`)
-#timeindex <- c(1:length(bluestem$`Total Food & Liquor Sales`))
-#fit0 <- lm(bluestem$`Total Food & Liquor Sales` ~ timeindex)
-#summary(fit0)
-```
-
+# Data Exploration
 
 ```{r}
+#Adding the time index predictor
+
+bluestem$Weekday <- factor(names(bluestem[3:9])[max.col(bluestem[3:9])], levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+stan <- rep(c('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),50)
+st <- 1
+timeindex <- c()
+for (lp in 1:249){
+  timeindex[lp] <- st
+  while (stan[st] != bluestem$Weekday[lp]){
+    st <- st+1
+    timeindex[lp] <- st
+  }
+}
+bluestem$timeindex <- timeindex 
+
 #data processing
-bluestem_exp <- bluestem_0 #data for exploration
-bluestem_exp$Weekday <- factor(names(bluestem_exp[3:9])[max.col(bluestem_exp[3:9])], levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
-bluestem_exp$desSales <- bluestem_exp$Sales/bluestem_exp$Index
 
+bluestem$desSales <- bluestem$Sales/bluestem$Index
+
+#See if there is linear trend along the time line
+
+fit0 <- lm(Sales ~ timeindex,data=bluestem)
+summary(fit0)
+plot(bluestem$timeindex,bluestem$Sales)
+abline(fit0,col=2)
+```
+
+```{r}
+## standardize index
+
+index_table <- unique(bluestem[names(bluestem) %in% c("Weekday", "Index")])
+bluestem$Index <- bluestem$Index*7/sum(index_table[,1])
+```
+
+
+```{r}
 #Different Nightly Index for different Weekdays
+
+index_table <- unique(bluestem[names(bluestem) %in% c("Weekday", "Index")])
+
 library(ggplot2)
-index_table <- unique(bluestem_exp[10:11])
-ggplot(index_table, aes(x = Weekday, y = Index)) + 
+library(RColorBrewer)
+
+ggplot(index_table, aes(x = Weekday, y = Index, fill=Weekday)) + 
     geom_bar(stat = "identity") + 
-    geom_text(aes(label = Index), vjust=-0.6) + 
+    geom_text(aes(label = sprintf("%0.2f", round(Index, digits = 2))), vjust=-0.6) + 
+    scale_fill_manual(values=brewer.pal(7, "Blues")[1:7]) +
     labs(y="Nightly Index")
 
 #Sales on different Weekdays
-ggplot(bluestem_exp, aes(x = Weekday, y = Sales)) + 
+ggplot(bluestem, aes(x = Weekday, y = Sales, fill=Weekday)) + 
     geom_boxplot() + 
-    geom_point(data=subset(bluestem_exp, Promotion==1), mapping=aes(color=Promotion), size=3) + 
-    labs(color="") + 
+    geom_point(data=subset(bluestem, Promotion==1), mapping=aes(color=Promotion), size=3) + 
+    scale_fill_manual(values=brewer.pal(7, "Blues")[1:7]) + 
     scale_color_manual(labels = "With Promotion", values="red")
 
 #Sales with or without promotions
-ggplot(bluestem_exp, aes(x = Promotion, y = Sales)) +
-    geom_boxplot()
+ggplot(bluestem, aes(x = Promotion, y = Sales, fill= Promotion)) +
+    geom_boxplot()+
+    scale_fill_manual(values=c(brewer.pal(7, "Blues")[4],brewer.pal(7, "Reds")[4]))
 
 #De-seasonalized Sales with or without promotions
-ggplot(bluestem_exp, aes(x = Promotion, y = desSales)) + 
+ggplot(bluestem, aes(x = Promotion, y = desSales, fill= Promotion)) + 
     geom_boxplot() + 
+    scale_fill_manual(values=c(brewer.pal(7, "Blues")[4],brewer.pal(7, "Reds")[4])) +
     labs(y="Sales/Nightly Index")
 ```
 
 ## Additive Model
-A regression model using dummy variables to account for the fixed Weekday¡¯s effect.
+A regression model using dummy variables to account for the fixed Weekday??s effect.
 
 ```{r}
-bluestem_1 <- bluestem_exp[1:8]
+## in this chunk, ".t" means timeindex is added
+
+bluestem_1 <- bluestem[1:8]
+bluestem_1.t <- bluestem_1
+bluestem_1.t $ timeindex <- bluestem$timeindex
 str(bluestem_1) #Sunday as the base dummy
-add.fit=lm(formula = 'Sales ~ .', data = bluestem_1)
+add.fit <- lm(formula = 'Sales ~ .', data = bluestem_1)
+add.fit.t <- lm(formula = 'Sales ~ .', data = bluestem_1.t)
 summary(add.fit)
+summary(add.fit.t)
 add.fit$coefficients[2]
+add.fit.t$coefficients[2]
+
 ```
 **Answer = 593.5**
+
+** After the time index is added, Answer = 604.73 **
 
 ```{r}
 # Checking model assumptions
 par(mfrow=c(2,2))
 plot(add.fit)
+plot(add.fit.t)
 # Checking multicollinearity for independent variables
 library(HH)
 vif(add.fit)
+vif(add.fit.t)
 ```
 
 ## Multiplicative Model
-The nightly index expresses each Weekday¡¯s effect on the popularity. 
+The nightly index expresses each Weekday??s effect on the popularity. 
 
 #### 1. Use De-seasonalized Sales.
 
 ```{r}
-mtp.fit=lm(formula = 'desSales ~ Promotion', data = bluestem_exp)
+mtp.fit=lm(formula = 'desSales ~ Promotion', data = bluestem)
+summary(mtp.fit)
+
+mtp.fit.t=lm(formula = 'desSales ~ Promotion + timeindex', data = bluestem)
 summary(mtp.fit)
 # The coefficient of Promotion stands for the boost in revenues without Weekday effect. Such boost would be amplified by the Nightly Index for Saturday.
 mtp.fit$coefficients[2] * index_table$Index[which(index_table$Weekday=="Saturday")]
@@ -96,11 +141,11 @@ par(mfrow=c(2,2))
 plot(mtp.fit)
 ```
 
-#### 2. Try log(De-seasonalized Sales)
+#### 2. Try log(De-seasonalized Sales)  Answer, need to multiply weekindex?
 
 ```{r}
-bluestem_exp$log_desSales <- log(bluestem_exp$desSales)
-mtp.fit.2=lm(formula = 'log_desSales ~ Promotion', data = bluestem_exp)
+bluestem$log_desSales <- log(bluestem$desSales)
+mtp.fit.2=lm(formula = 'log_desSales ~ Promotion', data = bluestem)
 summary(mtp.fit.2)
 # Checking model assumptions
 par(mfrow=c(2,2))
