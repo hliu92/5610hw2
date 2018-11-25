@@ -247,6 +247,44 @@ summary(lm(mtp.fit.6$residuals[-1]~mtp.fit.6$residuals[-249]))
 
 ## Comparison
 
+```{r}
+## 3 models are selected in first round selection  add.fit.2 mtp.fit.2 and mtp.fit.6
+## L1 L2 percentage---- these three criteria are used to evaluate them
+
+
+
+
+Error <- matrix(0,nrow=3,ncol=3)
+colnames(Error) <- c("Mean Squared Error","Absolute Error","Absolute Error Percentage")
+rownames(Error) <- c("add.fit.2","mtp.fit.2","mtp.fit.6")
+
+## add.fit.2
+add.pd.2 <- predict(add.fit.2,bluestem)
+dif <- bluestem$Sales-add.pd.2
+Error[1,1] <- crossprod(dif,dif)/249
+Error[1,2] <- sum(abs(dif))/249
+Error[1,3] <- sum(abs(dif/bluestem$Sales))/249
+
+## mtp.fit.2
+mtp.pd.2 <- predict(mtp.fit.2,bluestem)*bluestem$Index
+dif <- bluestem$Sales-mtp.pd.2
+Error[2,1] <- crossprod(dif,dif)/249
+Error[2,2] <- sum(abs(dif))/249
+Error[2,3] <- sum(abs(dif/bluestem$Sales))/249
+
+## mtp.fit.6
+mtp.pd.6 <- exp(predict(mtp.fit.6,bluestem))*bluestem$Index
+dif <- bluestem$Sales-mtp.pd.6
+Error[3,1] <- crossprod(dif,dif)/249
+Error[3,2] <- sum(abs(dif))/249
+Error[3,3] <- sum(abs(dif/bluestem$Sales))/249
+
+
+knitr::kable(Error,format = "markdown")
+```
+
+
+
 **Model assumptions:**  
 The additive model is much better in terms of R-square and residual plots. The multiplicative model using log(De-seasonalized Sales) is better than the one directly using De-seasonalized Sales.  
 **Business perspective:**   
