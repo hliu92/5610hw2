@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ```{r}
-setwd("~/MSBA/ISOM5610/HW2"  )
+setwd("~/MSBA/ISOM5610/HW2")
 library(readxl)
 bluestem <- as.data.frame(read_excel("bluestem.xls", sheet=1))
 bluestem[,2:9] <- lapply(bluestem[,2:9], factor)
