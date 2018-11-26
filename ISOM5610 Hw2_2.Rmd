@@ -221,7 +221,7 @@ CO Procedure
 ```{r}
 co.test <- lm(formula = mtp.fit.2$residuals ~ Lag(mtp.fit.2$residuals, 1))
 rho <- co.test$coefficients[2]
-bluestem.CO.1 <- lapply(bluestem[,c(19,2,12,14)], as.numeric)
+bluestem.CO.1 <- as.data.frame(lapply(bluestem[,c(18,2,12,14)], as.numeric))
 bluestem.CO.1 <- bluestem.CO.1[-1,]-bluestem.CO.1[-249,]*rho
 co.fit.1 <- lm(desSales ~ Promotion + timeindex + prolag1, data = bluestem.CO.1)
 summary(co.fit.1)
