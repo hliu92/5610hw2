@@ -205,7 +205,15 @@ vif(mtp.fit.2)
 summary(lm(mtp.fit.2$residuals[-1]~mtp.fit.2$residuals[-249]))
 
 ```
-Same as before, both fail
+
+```{r}
+bluestem.CO.1 <- bluestem[-1,]-bluestem[-249,]*0.19603
+bluestem.CO.1[,2] <- as.numeric(unlist(bluestem[-1,2]))-as.numeric(unlist(bluestem[-249,2])) *0.19603
+co.fit.1 <- lm(desSales ~ Promotion + timeindex + prolag1, data = bluestem.CO.1)
+summary(lm(co.fit.1$residuals[-1]~co.fit.1$residuals[-248]))
+summary(co.fit.1)
+```
+
 
 #### 2. Try log(De-seasonalized Sales)  Answer, need to multiply weekindex?
 
