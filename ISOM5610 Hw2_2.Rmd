@@ -27,7 +27,7 @@ check_assumption <- function(testfit){
     plot(testfit$fitted.values,stdres,main='Versus Fits',xlab='Fitted Value',ylab='Standardized Residual')
     abline(0,0,lty=3)
     hist(stdres,main='Histogram',xlab='Standardized Residual')
-    plot(tail(timeindex,length(stdres)),stdres,type="o",main='Versus Order',xlab='TimeIndex',ylab='Standardized Residual')
+    plot(as.ts(stdres),type="o",main='Versus Order',xlab='Time',ylab='Standardized Residual')
     abline(0,0,lty=3)
     #BP test
     cat("====BP test====\n")
