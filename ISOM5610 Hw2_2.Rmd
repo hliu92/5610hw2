@@ -63,8 +63,8 @@ bluestem$n <- c(1:nrow(bluestem))
 # Model 0.1 - Sales vs. full time line
 fit0.1 <- lm(Sales ~ timeindex,data=bluestem)
 summary(fit0.1)
-plot(bluestem$timeindex,bluestem$Sales, type="l")
-abline(fit0.1,col=2)
+{plot(bluestem$timeindex,bluestem$Sales, type="l")
+abline(fit0.1,col=2)}
 # Model 0.2 - Sales vs. open days time line 
 fit0.2 <- lm(Sales ~ n, data=bluestem)
 summary(fit0.2)
@@ -91,8 +91,8 @@ bluestem$desSales <- bluestem$Sales/bluestem$Index
 # Model 0.3 - De-seasonalized Sales (standard) vs. full time line
 fit0.3 <- lm(desSales ~ timeindex,data=bluestem)
 summary(fit0.3)
-plot(bluestem$timeindex,bluestem$desSales, type="l")
-abline(fit0.3,col=2)
+{plot(bluestem$timeindex,bluestem$desSales, type="l")
+abline(fit0.3,col=2)}
 # Model 0.4 - De-seasonalized Sales (standard) vs. open days time line 
 fit0.4 <- lm(desSales ~ n, data=bluestem)
 summary(fit0.4)
