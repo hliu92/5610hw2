@@ -15,60 +15,45 @@ colnames(bluestem)[10] <- "Index"
 summary(bluestem)
 ```
 
-# Data Exploration
+
 
 ```{r}
 #Adding the time index predictor
 
 bluestem$Weekday <- factor(names(bluestem[3:9])[max.col(bluestem[3:9])], levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
-stan <- rep(c('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'),50)
-st <- 1
-timeindex <- c()
-for (lp in 1:249){
-  timeindex[lp] <- st
-  while (stan[st] != bluestem$Weekday[lp]){
-    st <- st+1
-    timeindex[lp] <- st
-  }
-}
-bluestem$timeindex <- timeindex 
+bluestem$timeindex <- c(1:249)
 
-#See if there is linear trend along the time line
-
-fit0 <- lm(Sales ~ timeindex,data=bluestem)
-summary(fit0)
-plot(bluestem$timeindex,bluestem$Sales)
-abline(fit0,col=2)
-```
-
-```{r}
 ## standardize index
 
 index_table <- unique(bluestem[names(bluestem) %in% c("Weekday", "Index")])
 bluestem$Index <- bluestem$Index*7/sum(index_table[,1])
+index_table <- unique(bluestem[names(bluestem) %in% c("Weekday", "Index")])
+bluestem$desSales <- bluestem$Sales/bluestem$Index
 
 ## Add lag predictor for promotion
-prolag1 <- rep(0,249)
-prolag1[c(108,120)] <- 1
-prolag2 <- rep(0,249)
-prolag2[c(54,97,109)] <- 1
-bluestem$prolag1 <- prolag1
-bluestem$prolag2 <- prolag2
 
+library(Hmisc)
+bluestem$prolag1 <- Lag(bluestem$Promotion,1)
+bluestem$prolag2 <- Lag(bluestem$Promotion,2)
 ```
 
 
+# Data Exploration
+
 ```{r}
-#Different Nightly Index for different Weekdays
-
-index_table <- unique(bluestem[names(bluestem) %in% c("Weekday", "Index")])
-#data processing
-
-bluestem$desSales <- bluestem$Sales/bluestem$Index
-
-
 library(ggplot2)
 library(RColorBrewer)
+#See if there is linear trend along the time line
+
+fit0.1 <- lm(Sales ~ timeindex,data=bluestem)
+summary(fit0.1)
+plot(bluestem$timeindex,bluestem$Sales)
+abline(fit0.1,col=2)
+
+fit0.2 <- lm(desSales ~ timeindex,data=bluestem)
+summary(fit0.2)
+plot(bluestem$timeindex,bluestem$desSales)
+abline(fit0.2,col=2)
 
 ggplot(index_table, aes(x = Weekday, y = Index, fill=Weekday)) + 
     geom_bar(stat = "identity") + 
@@ -95,61 +80,82 @@ ggplot(bluestem, aes(x = Promotion, y = desSales, fill= Promotion)) +
     labs(y="Sales/Nightly Index")
 ```
 
+```{r}
+library(car)
+# This function is a combination of Diagnostic plots, BP test, multicollinearity check for independent variables, and Cochrane-Orcutt test
+check_assumption <- function(testfit){
+    #Diagnostic plots
+    stdres=rstandard(testfit)
+    par(mfrow=c(2,2))
+    qqnorm(stdres,main='Normal Probability Plot',xlab='Normal Quantiles',ylab='Standardized Residual Quantiles')
+    abline(0,1)
+    plot(testfit$fitted.values,stdres,main='Versus Fits',xlab='Fitted Value',ylab='Standardized Residual')
+    abline(0,0,lty=3)
+    hist(stdres,main='Histogram',xlab='Standardized Residual')
+    plot(as.ts(stdres),type="o",main='Versus Order',xlab='TimeIndex',ylab='Standardized Residual')
+    abline(0,0,lty=3)
+    #BP test
+    cat("====BP test====\n")
+    print(ncvTest(testfit))
+    #Checking multicollinearity for independent variables
+    cat("\n====Checking multicollinearity for independent variables====\nVIF:\n")
+    tryCatch({
+         print(vif(testfit))
+         },
+         warning = function(msg) {
+              message("Original warning message:")
+              message(paste0(msg,"\n"))
+              return(NULL)
+         },
+         error = function(msg) {
+              message("Original error message:")
+              message(paste0(msg,"\n"))
+              return(NA)
+         }
+) 
+    
+    #Cochrane-Orcutt test
+    cat("\n====Cochrane-Orcutt test====")
+    summary(lm(testfit$residuals~Lag(testfit$residuals, 1)))
+}
+```
+
+
 ## Additive Model
 A regression model using dummy variables to account for the fixed Weekday??s effect.
 
 ```{r}
-## in this chunk, ".t" means timeindex is added
-bluestem_1 <- bluestem[,c(1:8,12)]
+bluestem_1 <- bluestem[,c(1:8)]
 add.fit.1 <- lm(Sales ~ ., data = bluestem_1)
 summary(add.fit.1)
 add.fit.1$coefficients[2]
-```
-
-**After the time index is added, Answer = 604.824**
-
-```{r}
 # Checking model assumptions
-par(mfrow=c(2,2))
-plot(add.fit.1)
-# BP test
-library(car)
-ncvTest(add.fit.1)
-# Checking multicollinearity for independent variables
-library(HH)
-vif(add.fit.1)
-#Cochrane-Orcutt procedure [Testing coefficient for residuals regression]
-summary(lm(add.fit.1$residuals[-1]~add.fit.1$residuals[-249]))
+check_assumption(add.fit.1)
 ```
+
+**After the time index is added, Answer = 593.5**
+
 BP Test and CO Test don't pass!!!
 
 ```{r}
-bluestem_1 <- bluestem[,c(1:8,12,14)]
+bluestem_1 <- bluestem[,c(1:8,14)]
 add.fit.2 <- lm(Sales ~ ., data = bluestem_1)
 summary(add.fit.2)
-bluestem_1 <- bluestem[,c(1:8,12,14,15)]
+bluestem_1 <- bluestem[,c(1:8,14,15)]
 add.fit.3 <- lm(Sales ~ ., data = bluestem_1)
 summary(add.fit.3)
-
 ```
 
 fit.2 is better than fit.3 and fit.1
 
+
 ```{r}
 # Checking model assumptions
-par(mfrow=c(2,2))
-plot(add.fit.2)
-# BP test
-library(car)
-ncvTest(add.fit.2)
-# Checking multicollinearity for independent variables
-library(HH)
-vif(add.fit.2)
-#Cochrane-Orcutt procedure [Testing coefficient for residuals regression]
-summary(lm(add.fit.2$residuals[-1]~add.fit.2$residuals[-249]))
-plot(add.fit.2$residuals,lag(add.fit.2$residuals,1))
+
+check_assumption(add.fit.2)
 ```
-both fail
+
+
 
 ## Multiplicative Model
 The nightly index expresses each Weekday??s effect on the popularity. 
@@ -157,7 +163,7 @@ The nightly index expresses each Weekday??s effect on the popularity.
 #### 1. Use De-seasonalized Sales.
 
 ```{r}
-mtp.fit.1 <- lm(desSales ~ Promotion + timeindex, data = bluestem)
+mtp.fit.1 <- lm(desSales ~ Promotion, data = bluestem)
 summary(mtp.fit.1)
 
 # The coefficient of Promotion stands for the boost in revenues without Weekday effect. Such boost would be amplified by the Nightly Index for Saturday.
@@ -166,52 +172,34 @@ mtp.fit.1$coefficients[2] * index_table$Index[which(index_table$Weekday=="Saturd
 
 ```{r}
 # Checking model assumptions
-par(mfrow=c(2,2))
-plot(mtp.fit.1)
-# BP test
-library(car)
-ncvTest(mtp.fit.1)
-# Checking multicollinearity for independent variables
-library(HH)
-vif(mtp.fit.1)
-#Cochrane-Orcutt procedure [Testing coefficient for residuals regression]
-summary(lm(mtp.fit.1$residuals[-1]~mtp.fit.1$residuals[-249]))
+check_assumption(mtp.fit.1)
 ```
+
+Promotion effect: 801.43
 
 BP test and CO test don't pass
 
 
 ```{r}
-mtp.fit.2 <- lm(desSales ~ Promotion + timeindex + prolag1, data = bluestem)
+mtp.fit.2 <- lm(desSales ~ Promotion + prolag1, data = bluestem)
 summary(mtp.fit.2)
 
-mtp.fit.3 <- lm(desSales ~ Promotion + timeindex + prolag1 + prolag2, data = bluestem)
+mtp.fit.3 <- lm(desSales ~ Promotion + prolag1 + prolag2, data = bluestem)
 summary(mtp.fit.3)
 ```
 
-fit.2 is better than fit.3, so we take fit.2 to run tests
+Both lags are useless.
 
 ```{r}
-# Checking model assumptions
-par(mfrow=c(2,2))
-plot(mtp.fit.2)
-# BP test
-library(car)
-ncvTest(mtp.fit.2)
-# Checking multicollinearity for independent variables
-library(HH)
-vif(mtp.fit.2)
-#Cochrane-Orcutt procedure [Testing coefficient for residuals regression]
-summary(lm(mtp.fit.2$residuals[-1]~mtp.fit.2$residuals[-249]))
+## Conduct CO procedure for fit.1
 
-```
-
-```{r}
-bluestem.CO.1 <- bluestem[-1,]-bluestem[-249,]*0.19603
-bluestem.CO.1[,2] <- as.numeric(unlist(bluestem[-1,2]))-as.numeric(unlist(bluestem[-249,2])) *0.19603
-co.fit.1 <- lm(desSales ~ Promotion + timeindex + prolag1, data = bluestem.CO.1)
-summary(lm(co.fit.1$residuals[-1]~co.fit.1$residuals[-248]))
+co.test <- lm(formula = mtp.fit.1$residuals ~ Lag(mtp.fit.1$residuals, 1))
+rho <- co.test$coefficients[2]
+bluestem.CO.1 <- as.data.frame(lapply(bluestem[,c(13,2)], as.numeric))
+bluestem.CO.1 <- bluestem.CO.1[-1,]-bluestem.CO.1[-249,]*rho
+co.fit.1 <- lm(desSales ~ Promotion, data = bluestem.CO.1)
 summary(co.fit.1)
+check_assumption(co.fit.1)
 ```
 
 
@@ -219,38 +207,14 @@ summary(co.fit.1)
 
 ```{r}
 bluestem$log_desSales <- log(bluestem$desSales)
-mtp.fit.4 <- lm(log_desSales ~ Promotion+timeindex, data = bluestem)
+mtp.fit.4 <- lm(log_desSales ~ Promotion, data = bluestem)
 summary(mtp.fit.4)
+check_assumption(mtp.fit.4)
 
-
-mtp.fit.5 <- lm(log_desSales ~ Promotion+timeindex+prolag1, data = bluestem)
+mtp.fit.5 <- lm(log_desSales ~ Promotion+prolag1, data = bluestem)
 summary(mtp.fit.5)
-
-
-mtp.fit.6 <- lm(log_desSales ~ Promotion+timeindex+prolag1+prolag2, data = bluestem)
+mtp.fit.6 <- lm(log_desSales ~ Promotion+prolag1+prolag2, data = bluestem)
 summary(mtp.fit.6)
-# 
-# # Checking model assumptions
-# par(mfrow=c(2,2))
-# plot(mtp.fit.2)
-# mtp.fit.2$coefficients[2]
-# # Promotion increases sales without Weekday effect by 52.284%. Now factor in the Saturday effect in terms of % increase:
-# mtp.fit.2$coefficients[2] * ((index_table$Index[which(index_table$Weekday=="Saturday")] - 1)/1)
-```
-**Answer = 97.77094%**
-
-```{r}
-# Checking model assumptions
-par(mfrow=c(2,2))
-plot(mtp.fit.2)
-# BP test
-library(car)
-ncvTest(mtp.fit.6)
-# Checking multicollinearity for independent variables
-library(HH)
-vif(mtp.fit.6)
-#Cochrane-Orcutt procedure [Testing coefficient for residuals regression]
-summary(lm(mtp.fit.6$residuals[-1]~mtp.fit.6$residuals[-249]))
 ```
 
 ## Comparison
@@ -260,13 +224,12 @@ summary(lm(mtp.fit.6$residuals[-1]~mtp.fit.6$residuals[-249]))
 ## L1 L2 percentage---- these three criteria are used to evaluate them
 
 
-
-
 Error <- matrix(0,nrow=3,ncol=3)
 colnames(Error) <- c("Mean Squared Error","Absolute Error","Absolute Error Percentage")
-rownames(Error) <- c("add.fit.2","mtp.fit.2","mtp.fit.6")
+rownames(Error) <- c("add.fit.2","mtp.fit.1","mtp.fit.4")
 
 ## add.fit.2
+bluestem$prolag1[1]<-0
 add.pd.2 <- predict(add.fit.2,bluestem)
 dif <- bluestem$Sales-add.pd.2
 Error[1,1] <- crossprod(dif,dif)/249
@@ -274,15 +237,15 @@ Error[1,2] <- sum(abs(dif))/249
 Error[1,3] <- sum(abs(dif/bluestem$Sales))/249
 
 ## mtp.fit.2
-mtp.pd.2 <- predict(mtp.fit.2,bluestem)*bluestem$Index
-dif <- bluestem$Sales-mtp.pd.2
+mtp.pd.1 <- predict(mtp.fit.1,bluestem)*bluestem$Index
+dif <- bluestem$Sales-mtp.pd.1
 Error[2,1] <- crossprod(dif,dif)/249
 Error[2,2] <- sum(abs(dif))/249
 Error[2,3] <- sum(abs(dif/bluestem$Sales))/249
 
 ## mtp.fit.6
-mtp.pd.6 <- exp(predict(mtp.fit.6,bluestem))*bluestem$Index
-dif <- bluestem$Sales-mtp.pd.6
+mtp.pd.4 <- exp(predict(mtp.fit.4,bluestem))*bluestem$Index
+dif <- bluestem$Sales-mtp.pd.4
 Error[3,1] <- crossprod(dif,dif)/249
 Error[3,2] <- sum(abs(dif))/249
 Error[3,3] <- sum(abs(dif/bluestem$Sales))/249
@@ -297,3 +260,58 @@ knitr::kable(Error,format = "markdown")
 The additive model is much better in terms of R-square and residual plots. The multiplicative model using log(De-seasonalized Sales) is better than the one directly using De-seasonalized Sales.  
 **Business perspective:**   
 The multiplicative model is better than the additive model. The additive model assumes that promotions have same boost effect on all weekdays, which is not the case. Promotional events should have better results with larger customer traffic. This is better addressed by the multiplicative model.
+
+
+
+
+
+## Index
+
+```{r}
+
+## aditive with timeindex
+
+bluestem_1_t <- bluestem[,c(1:8,12)]
+add.fit.1_t <- lm(Sales ~ ., data = bluestem_1_t)
+summary(add.fit.1_t)
+
+
+## add lag
+bluestem_1_t <- bluestem[,c(1:8,12,14)]
+add.fit.2_t <- lm(Sales ~ ., data = bluestem_1_t)
+summary(add.fit.2_t)
+bluestem_1_t <- bluestem[,c(1:8,12,14,15)]
+add.fit.3_t <- lm(Sales ~ ., data = bluestem_1_t)
+summary(add.fit.3_t)
+
+
+## multuple with timeindex
+
+mtp.fit.1_t <- lm(desSales ~ Promotion + timeindex, data = bluestem)
+summary(mtp.fit.1_t)
+
+
+## add lag
+
+mtp.fit.2 <- lm(desSales ~ Promotion + timeindex + prolag1, data = bluestem)
+summary(mtp.fit.2)
+mtp.fit.3 <- lm(desSales ~ Promotion + timeindex + prolag1 + prolag2, data = bluestem)
+summary(mtp.fit.3)
+
+
+## try log(desSales)
+
+mtp.fit.4 <- lm(log_desSales ~ Promotion+timeindex, data = bluestem)
+summary(mtp.fit.4)
+
+
+mtp.fit.5 <- lm(log_desSales ~ Promotion+timeindex+prolag1, data = bluestem)
+summary(mtp.fit.5)
+
+
+mtp.fit.6 <- lm(log_desSales ~ Promotion+timeindex+prolag1+prolag2, data = bluestem)
+summary(mtp.fit.6)
+
+
+
+```
