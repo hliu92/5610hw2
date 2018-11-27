@@ -1,7 +1,7 @@
 ---
 title: "ISOM5610 HW2"
 author: "Team 1"
-date: "22 November 2018"
+date: "30 November 2018"
 output: pdf_document
 ---
 
