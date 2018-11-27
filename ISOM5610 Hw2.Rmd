@@ -47,12 +47,12 @@ library(RColorBrewer)
 
 fit0.1 <- lm(Sales ~ timeindex,data=bluestem)
 summary(fit0.1)
-plot(bluestem$timeindex,bluestem$Sales)
+plot(bluestem$timeindex,bluestem$Sales, type = "l")
 abline(fit0.1,col=2)
 
 fit0.2 <- lm(desSales ~ timeindex,data=bluestem)
 summary(fit0.2)
-plot(bluestem$timeindex,bluestem$desSales)
+plot(bluestem$timeindex,bluestem$desSales, type = "l")
 abline(fit0.2,col=2)
 
 ggplot(index_table, aes(x = Weekday, y = Index, fill=Weekday)) + 
