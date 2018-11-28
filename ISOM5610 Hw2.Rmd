@@ -196,6 +196,7 @@ Both lags are useless.
 co.test <- lm(formula = mtp.fit.1$residuals ~ Lag(mtp.fit.1$residuals, 1))
 rho <- co.test$coefficients[2]
 bluestem.CO.1 <- as.data.frame(lapply(bluestem[,c(13,2)], as.numeric))
+bluestem.CO.1[,2] <- bluestem.CO.1[,2]-1 
 bluestem.CO.1 <- bluestem.CO.1[-1,]-bluestem.CO.1[-249,]*rho
 co.fit.1 <- lm(desSales ~ Promotion, data = bluestem.CO.1)
 summary(co.fit.1)
@@ -224,9 +225,9 @@ summary(mtp.fit.6)
 ## L1 L2 percentage---- these three criteria are used to evaluate them
 
 
-Error <- matrix(0,nrow=3,ncol=3)
+Error <- matrix(0,nrow=4,ncol=3)
 colnames(Error) <- c("Mean Squared Error","Absolute Error","Absolute Error Percentage")
-rownames(Error) <- c("add.fit.2","mtp.fit.1","mtp.fit.4")
+rownames(Error) <- c("add.fit.2","mtp.fit.1","co.fit.1","mtp.fit.4")
 
 ## add.fit.2
 bluestem$prolag1[1]<-0
@@ -236,19 +237,29 @@ Error[1,1] <- crossprod(dif,dif)/249
 Error[1,2] <- sum(abs(dif))/249
 Error[1,3] <- sum(abs(dif/bluestem$Sales))/249
 
-## mtp.fit.2
+## mtp.fit.1
 mtp.pd.1 <- predict(mtp.fit.1,bluestem)*bluestem$Index
 dif <- bluestem$Sales-mtp.pd.1
 Error[2,1] <- crossprod(dif,dif)/249
 Error[2,2] <- sum(abs(dif))/249
 Error[2,3] <- sum(abs(dif/bluestem$Sales))/249
 
-## mtp.fit.6
-mtp.pd.4 <- exp(predict(mtp.fit.4,bluestem))*bluestem$Index
-dif <- bluestem$Sales-mtp.pd.4
+## co.fit.1 
+bluestem.CO.2 <- as.data.frame(lapply(bluestem[,c(13,2)], as.numeric))
+bluestem.CO.2[,2] <- bluestem.CO.2[,2]-1 
+co.pd.1 <-  predict(co.fit.1,bluestem.CO.2)*bluestem$Index
+dif <- bluestem$Sales-co.pd.1
 Error[3,1] <- crossprod(dif,dif)/249
 Error[3,2] <- sum(abs(dif))/249
 Error[3,3] <- sum(abs(dif/bluestem$Sales))/249
+
+## mtp.fit.4
+mtp.pd.4 <- exp(predict(mtp.fit.4,bluestem))*bluestem$Index
+dif <- bluestem$Sales-mtp.pd.4
+Error[4,1] <- crossprod(dif,dif)/249
+Error[4,2] <- sum(abs(dif))/249
+Error[4,3] <- sum(abs(dif/bluestem$Sales))/249
+
 
 
 knitr::kable(Error,format = "markdown")
