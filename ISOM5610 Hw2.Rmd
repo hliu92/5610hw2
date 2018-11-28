@@ -247,7 +247,8 @@ Error[2,3] <- sum(abs(dif/bluestem$Sales))/249
 ## co.fit.1 
 bluestem.CO.2 <- as.data.frame(lapply(bluestem[,c(13,2)], as.numeric))
 bluestem.CO.2[,2] <- bluestem.CO.2[,2]-1 
-co.pd.1 <-  predict(co.fit.1,bluestem.CO.2)*bluestem$Index
+co.pd.1 <-  (co.fit.1$coefficients[1]/(1-rho)+
+               bluestem.CO.2$Promotion*co.fit.1$coefficients[2])*bluestem$Index
 dif <- bluestem$Sales-co.pd.1
 Error[3,1] <- crossprod(dif,dif)/249
 Error[3,2] <- sum(abs(dif))/249
