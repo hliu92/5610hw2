@@ -182,7 +182,7 @@ add.fit.2 <- lm(Sales ~ ., data = bluestem_1)
 summary(add.fit.2)
 coef(summary(add.fit.2))[c(2,9),] # check promotion effect
 
-# additive model 0.2 with lag 1 and lag 2
+# additive model 0.3 with lag 1 and lag 2
 bluestem_1 <- bluestem[,c(1:8,13,14)]
 names(bluestem_1) # a subset of bluestem with "Sales", "Promotion" dummy, seasonal dummies from ¡°Monday¡± to ¡°Saturday¡±, lag 1 and lag 2 of promotion
 add.fit.3 <- lm(Sales ~ ., data = bluestem_1)
