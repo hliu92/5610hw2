@@ -1,88 +1,124 @@
 ---
-title: "ISOM5610 HW2"
+title: "ISOM5610 Homework 2 - Blue Stem"
 author: "Team 1"
 date: "30 November 2018"
 output: pdf_document
 ---
 
+1. Data Manipulation
+
+1.1 Check Missing Values
+
 ```{r}
 setwd("~/MSBA/ISOM5610/HW2")
 library(readxl)
 bluestem <- as.data.frame(read_excel("bluestem.xls", sheet=1))
-bluestem[,2:9] <- lapply(bluestem[,2:9], factor)
+sum(is.na(bluestem)) #check number of missing data
+
+bluestem[,2:9] <- lapply(bluestem[,2:9], factor) #convert to factors
 colnames(bluestem)[1] <- "Sales"
 colnames(bluestem)[10] <- "Index"
 summary(bluestem)
+str(bluestem)
 ```
 
-
+1.2 Deseasonalize Sales
 
 ```{r}
-#Adding the time index predictor
-
-bluestem$Weekday <- factor(names(bluestem[3:9])[max.col(bluestem[3:9])], levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
-bluestem$timeindex <- c(1:249)
-
 ## standardize index
-
+bluestem$Weekday <- factor(names(bluestem[3:9])[max.col(bluestem[3:9])], levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
 index_table <- unique(bluestem[names(bluestem) %in% c("Weekday", "Index")])
 bluestem$Index <- bluestem$Index*7/sum(index_table[,1])
 index_table <- unique(bluestem[names(bluestem) %in% c("Weekday", "Index")])
+
+# add Deseasonalize Sales
 bluestem$desSales <- bluestem$Sales/bluestem$Index
+```
 
-## Add lag predictor for promotion
+1.3 Add Lagged Predictors for Promotion
 
+```{r}
 library(Hmisc)
 bluestem$prolag1 <- Lag(bluestem$Promotion,1)
 bluestem$prolag2 <- Lag(bluestem$Promotion,2)
 ```
 
+2. Data Exploration - Explore Underlying Patterns
 
-# Data Exploration
+2.1 Sales Versus Time Index
+
+```{r}
+# add the time index predictor
+bluestem$timeindex <- c(1:249)
+
+# see if there is linear trend along the time line
+fit0.1 <- lm(Sales ~ timeindex,data=bluestem) # fit linear model
+plot(bluestem$timeindex,bluestem$Sales, type = "l") 
+# the plot is same as the time series plot:
+# plot(as.ts(bluestem$Sales))
+abline(fit0.1,col=2)
+summary(fit0.1)
+```
+
+2.2 Deseasonalized Sales Versus Time Index
+
+```{r}
+fit0.2 <- lm(desSales ~ timeindex,data=bluestem)
+plot(bluestem$timeindex,bluestem$desSales, type = "l")
+# the plot is same as the time series plot:
+# plot(as.ts(bluestem$desSales))
+abline(fit0.2,col=2)
+summary(fit0.2)
+```
+
+2.3 Nightly Indices Versus Different Days in a Week
 
 ```{r}
 library(ggplot2)
 library(RColorBrewer)
-#See if there is linear trend along the time line
-
-fit0.1 <- lm(Sales ~ timeindex,data=bluestem)
-summary(fit0.1)
-plot(bluestem$timeindex,bluestem$Sales, type = "l")
-abline(fit0.1,col=2)
-
-fit0.2 <- lm(desSales ~ timeindex,data=bluestem)
-summary(fit0.2)
-plot(bluestem$timeindex,bluestem$desSales, type = "l")
-abline(fit0.2,col=2)
 
 ggplot(index_table, aes(x = Weekday, y = Index, fill=Weekday)) + 
     geom_bar(stat = "identity") + 
     geom_text(aes(label = sprintf("%0.2f", round(Index, digits = 2))), vjust=-0.6) + 
-    scale_fill_manual(values=brewer.pal(7, "Blues")[1:7]) +
-    labs(y="Nightly Index")
+    scale_fill_manual(name="Days of Week", values=brewer.pal(7, "Blues")[1:7]) +
+    labs(y="Nightly Index", x="Days of Week")
+```
 
-#Sales on different Weekdays
+2.4 Sales Versus Different Days in a Week / Promotion
+
+```{r}
+# sales vs. different days in a week
 ggplot(bluestem, aes(x = Weekday, y = Sales, fill=Weekday)) + 
     geom_boxplot() + 
     geom_point(data=subset(bluestem, Promotion==1), mapping=aes(color=Promotion), size=3) + 
-    scale_fill_manual(values=brewer.pal(7, "Blues")[1:7]) + 
-    scale_color_manual(labels = "With Promotion", values="red")
+    scale_fill_manual(name="Days of Week", values=brewer.pal(7, "Blues")[1:7]) + 
+    scale_color_manual(labels = "With Promotion", values="red") + 
+    labs(x="Days of Week")
 
-#Sales with or without promotions
+# sales with or without promotions
 ggplot(bluestem, aes(x = Promotion, y = Sales, fill= Promotion)) +
     geom_boxplot()+
     scale_fill_manual(values=c(brewer.pal(7, "Blues")[4],brewer.pal(7, "Reds")[4]))
+```
 
-#De-seasonalized Sales with or without promotions
+2.5 Deseasonalized Sales Versus Promotion
+
+```{r}
 ggplot(bluestem, aes(x = Promotion, y = desSales, fill= Promotion)) + 
     geom_boxplot() + 
     scale_fill_manual(values=c(brewer.pal(7, "Blues")[4],brewer.pal(7, "Reds")[4])) +
     labs(y="Sales/Nightly Index")
 ```
 
+3. Model Building
+
 ```{r}
 library(car)
-# This function is a combination of Diagnostic plots, BP test, multicollinearity check for independent variables, and Cochrane-Orcutt test
+# This function is a combination of 
+# (1) Diagnostic plots; 
+# (2) Breusch-Pagan test ("BP test" for short);
+# (3) Multicollinearity check for independent variables (by VIF); and 
+# (4) Cochrane-Orcutt test ("CO test" for short)
 check_assumption <- function(testfit){
     #Diagnostic plots
     stdres=rstandard(testfit)
@@ -95,10 +131,10 @@ check_assumption <- function(testfit){
     plot(as.ts(stdres),type="o",main='Versus Order',xlab='TimeIndex',ylab='Standardized Residual')
     abline(0,0,lty=3)
     #BP test
-    cat("====BP test====\n")
+    cat("\n==========================Breusch-Pagan test==========================\n\n")
     print(ncvTest(testfit))
     #Checking multicollinearity for independent variables
-    cat("\n====Checking multicollinearity for independent variables====\nVIF:\n")
+    cat("\n=========Checking multicollinearity for independent variables=========\n\nVIF:\n")
     tryCatch({
          print(vif(testfit))
          },
@@ -115,119 +151,109 @@ check_assumption <- function(testfit){
 ) 
     
     #Cochrane-Orcutt test
-    cat("\n====Cochrane-Orcutt test====")
+    cat("\n=========================Cochrane-Orcutt test=========================\n")
     summary(lm(testfit$residuals~Lag(testfit$residuals, 1)))
 }
 ```
 
+3.1 Additive Model
 
-## Additive Model
-A regression model using dummy variables to account for the fixed Weekday??s effect.
+3.1.1 Model 0.1
 
 ```{r}
-bluestem_1 <- bluestem[,c(1:8)]
+# additive model 0.1
+bluestem_1 <- bluestem[,c(1:8)] 
+names(bluestem_1) # a subset of bluestem with "Sales", "Promotion" dummy and seasonal dummies from ¡°Monday¡± to ¡°Saturday¡±
 add.fit.1 <- lm(Sales ~ ., data = bluestem_1)
 summary(add.fit.1)
-add.fit.1$coefficients[2]
+add.fit.1$coefficients[2] # check promotion effect
+
 # Checking model assumptions
 check_assumption(add.fit.1)
 ```
 
-**After the time index is added, Answer = 593.5**
-
-BP Test and CO Test don't pass!!!
+3.1.2 Model 0.2 & Model 0.3 with Lagged Predictors
 
 ```{r}
-bluestem_1 <- bluestem[,c(1:8,14)]
+# additive model 0.2 with lag 1
+bluestem_1 <- bluestem[,c(1:8,13)]
+names(bluestem_1) # a subset of bluestem with "Sales", "Promotion" dummy, seasonal dummies from ¡°Monday¡± to ¡°Saturday¡±, and lag 1 of promotion
 add.fit.2 <- lm(Sales ~ ., data = bluestem_1)
 summary(add.fit.2)
-bluestem_1 <- bluestem[,c(1:8,14,15)]
+coef(summary(add.fit.2))[c(2,9),] # check promotion effect
+
+# additive model 0.2 with lag 1 and lag 2
+bluestem_1 <- bluestem[,c(1:8,13,14)]
+names(bluestem_1) # a subset of bluestem with "Sales", "Promotion" dummy, seasonal dummies from ¡°Monday¡± to ¡°Saturday¡±, lag 1 and lag 2 of promotion
 add.fit.3 <- lm(Sales ~ ., data = bluestem_1)
 summary(add.fit.3)
-```
+coef(summary(add.fit.3))[c(2,9,10),] # check promotion effect
 
-fit.2 is better than fit.3 and fit.1
-
-
-```{r}
-# Checking model assumptions
-
+# check model assumptions
 check_assumption(add.fit.2)
+check_assumption(add.fit.3)
 ```
 
+3.2 Multiplicative Model
 
-
-## Multiplicative Model
-The nightly index expresses each Weekday??s effect on the popularity. 
-
-#### 1. Use De-seasonalized Sales.
+3.2.1 Model 1.1
 
 ```{r}
+# multiplicative model 1.1 with promotion dummy only
 mtp.fit.1 <- lm(desSales ~ Promotion, data = bluestem)
 summary(mtp.fit.1)
+mtp.fit.1$coefficients[2] # check promotion effect on deseasonalized sales
 
-# The coefficient of Promotion stands for the boost in revenues without Weekday effect. Such boost would be amplified by the Nightly Index for Saturday.
+# The coefficient of Promotion stands for the boost in revenues without "days of week"" effect. Such boost would be amplified by the Nightly Index for Friday / Saturday.
+mtp.fit.1$coefficients[2] * index_table$Index[which(index_table$Weekday=="Friday")]
 mtp.fit.1$coefficients[2] * index_table$Index[which(index_table$Weekday=="Saturday")]
-```
 
-```{r}
 # Checking model assumptions
 check_assumption(mtp.fit.1)
 ```
 
-Promotion effect: 801.43
-
-BP test and CO test don't pass
-
+3.2.2 Model 1.2 and Model 1.3 with Lagged Predictors
 
 ```{r}
+# multiplicative model 1.2 with promotion dummy and lag 1
 mtp.fit.2 <- lm(desSales ~ Promotion + prolag1, data = bluestem)
 summary(mtp.fit.2)
 
+# multiplicative model 1.3 with promotion dummy, lag 1 and lag 2
 mtp.fit.3 <- lm(desSales ~ Promotion + prolag1 + prolag2, data = bluestem)
 summary(mtp.fit.3)
 ```
 
-Both lags are useless.
+3.2.3 Model 1.4 & Model 1.5: Using the Logged Response to Solve Autocorrelation
 
 ```{r}
-## Conduct CO procedure for fit.1
-
-co.test <- lm(formula = mtp.fit.1$residuals ~ Lag(mtp.fit.1$residuals, 1))
-rho <- co.test$coefficients[2]
-bluestem.CO.1 <- as.data.frame(lapply(bluestem[,c(13,2)], as.numeric))
-bluestem.CO.1[,2] <- bluestem.CO.1[,2]-1 
-bluestem.CO.1 <- bluestem.CO.1[-1,]-bluestem.CO.1[-249,]*rho
-co.fit.1 <- lm(desSales ~ Promotion, data = bluestem.CO.1)
-summary(co.fit.1)
-check_assumption(co.fit.1)
-```
-
-
-#### 2. Try log(De-seasonalized Sales)  Answer, need to multiply weekindex?
-
-```{r}
+# multiplicative model 1.4: try log of deseasonalized sales
 bluestem$log_desSales <- log(bluestem$desSales)
 mtp.fit.4 <- lm(log_desSales ~ Promotion, data = bluestem)
 summary(mtp.fit.4)
+coef(summary(mtp.fit.4))[2] # check promotion effect on deseasonalized sales as %
 check_assumption(mtp.fit.4)
 
-mtp.fit.5 <- lm(log_desSales ~ Promotion+prolag1, data = bluestem)
-summary(mtp.fit.5)
-mtp.fit.6 <- lm(log_desSales ~ Promotion+prolag1+prolag2, data = bluestem)
-summary(mtp.fit.6)
+
+# additive model 1.5: try log of sales
+bluestem$log_Sales <- log(bluestem$Sales)
+bluestem_1 <- bluestem[,c(17,2:8,13)]
+names(bluestem_1) # a subset of bluestem with "log_Sales", "Promotion" dummy, seasonal dummies from ¡°Monday¡± to ¡°Saturday¡±, and lag 1 of promotion
+add.fit.5 <- lm(log_Sales ~ ., data = bluestem_1)
+summary(add.fit.5)
+coef(summary(add.fit.5))[c(2,9),] #check promotion effect on sales as %
+check_assumption(add.fit.5)
 ```
 
-## Comparison
+3.3 Model Accuracy
 
 ```{r}
-## 3 models are selected in first round selection  add.fit.2 mtp.fit.2 and mtp.fit.6
+## 2 models are selected in first round selection: add.fit.2 and mtp.fit.1
 ## L1 L2 percentage---- these three criteria are used to evaluate them
 
-
-Error <- matrix(0,nrow=4,ncol=3)
+Error <- matrix(0,nrow=2,ncol=3)
 colnames(Error) <- c("Mean Squared Error","Absolute Error","Absolute Error Percentage")
-rownames(Error) <- c("add.fit.2","mtp.fit.1","co.fit.1","mtp.fit.4")
+rownames(Error) <- c("add.fit.2","mtp.fit.1")
 
 ## add.fit.2
 bluestem$prolag1[1]<-0
@@ -244,86 +270,59 @@ Error[2,1] <- crossprod(dif,dif)/249
 Error[2,2] <- sum(abs(dif))/249
 Error[2,3] <- sum(abs(dif/bluestem$Sales))/249
 
-## co.fit.1 
-bluestem.CO.2 <- as.data.frame(lapply(bluestem[,c(13,2)], as.numeric))
-bluestem.CO.2[,2] <- bluestem.CO.2[,2]-1 
-co.pd.1 <-  (co.fit.1$coefficients[1]/(1-rho)+
-               bluestem.CO.2$Promotion*co.fit.1$coefficients[2])*bluestem$Index
-dif <- bluestem$Sales-co.pd.1
-Error[3,1] <- crossprod(dif,dif)/249
-Error[3,2] <- sum(abs(dif))/249
-Error[3,3] <- sum(abs(dif/bluestem$Sales))/249
-
-## mtp.fit.4
-mtp.pd.4 <- exp(predict(mtp.fit.4,bluestem))*bluestem$Index
-dif <- bluestem$Sales-mtp.pd.4
-Error[4,1] <- crossprod(dif,dif)/249
-Error[4,2] <- sum(abs(dif))/249
-Error[4,3] <- sum(abs(dif/bluestem$Sales))/249
-
-
-
 knitr::kable(Error,format = "markdown")
 ```
 
-
-
-**Model assumptions:**  
-The additive model is much better in terms of R-square and residual plots. The multiplicative model using log(De-seasonalized Sales) is better than the one directly using De-seasonalized Sales.  
-**Business perspective:**   
-The multiplicative model is better than the additive model. The additive model assumes that promotions have same boost effect on all weekdays, which is not the case. Promotional events should have better results with larger customer traffic. This is better addressed by the multiplicative model.
-
-
-
-
-
-## Index
+3.4 Conclusion
 
 ```{r}
+# selected additive model
+summary(add.fit.2)
+coef(summary(add.fit.2))[c(2,9),] # check promotion effect
 
-## aditive with timeindex
+# selected multiplicative model
+summary(mtp.fit.1)
+mtp.fit.1$coefficients[2] # check promotion effect on deseasonalized sales
+index_table$Index[which(index_table$Weekday=="Saturday")] # standardized nightly index on Saturdays
+mtp.fit.1$coefficients[2] * index_table$Index[which(index_table$Weekday=="Saturday")]
+```
 
-bluestem_1_t <- bluestem[,c(1:8,12)]
+#######################################################
+Note: The following part is not included in the report. It records our exploration of different methods to solve the autocorrelation problem including adding lagged predictors and logging the response variable, but these methods did not turn to be effective to eliminate the problem.
+
+```{r}
+## additive model with timeindex
+bluestem_1_t <- bluestem[,c(1:8,15)]
+names(bluestem_1_t)
 add.fit.1_t <- lm(Sales ~ ., data = bluestem_1_t)
 summary(add.fit.1_t)
-
-
-## add lag
-bluestem_1_t <- bluestem[,c(1:8,12,14)]
+## add lag to additive model with timeindex
+# add lag 1
+bluestem_1_t <- bluestem[,c(1:8,15,13)] 
+names(bluestem_1_t)
 add.fit.2_t <- lm(Sales ~ ., data = bluestem_1_t)
 summary(add.fit.2_t)
-bluestem_1_t <- bluestem[,c(1:8,12,14,15)]
+# add lag 1 and lag 2
+bluestem_1_t <- bluestem[,c(1:8,15,13,14)]
+names(bluestem_1_t)
 add.fit.3_t <- lm(Sales ~ ., data = bluestem_1_t)
 summary(add.fit.3_t)
 
-
-## multuple with timeindex
-
+## multiplicative model with timeindex
 mtp.fit.1_t <- lm(desSales ~ Promotion + timeindex, data = bluestem)
 summary(mtp.fit.1_t)
-
-
-## add lag
-
-mtp.fit.2 <- lm(desSales ~ Promotion + timeindex + prolag1, data = bluestem)
+## add lag to multiplicative model with timeindex
+# add lag 1
+mtp.fit.2_t <- lm(desSales ~ Promotion + timeindex + prolag1, data = bluestem)
 summary(mtp.fit.2)
-mtp.fit.3 <- lm(desSales ~ Promotion + timeindex + prolag1 + prolag2, data = bluestem)
+# add lag 1 and lag 2
+mtp.fit.3_t <- lm(desSales ~ Promotion + timeindex + prolag1 + prolag2, data = bluestem)
 summary(mtp.fit.3)
-
-
 ## try log(desSales)
-
-mtp.fit.4 <- lm(log_desSales ~ Promotion+timeindex, data = bluestem)
-summary(mtp.fit.4)
-
-
-mtp.fit.5 <- lm(log_desSales ~ Promotion+timeindex+prolag1, data = bluestem)
-summary(mtp.fit.5)
-
-
-mtp.fit.6 <- lm(log_desSales ~ Promotion+timeindex+prolag1+prolag2, data = bluestem)
-summary(mtp.fit.6)
-
-
-
+mtp.fit.4_t <- lm(log_desSales ~ Promotion + timeindex, data = bluestem)
+summary(mtp.fit.4_t)
+mtp.fit.5_t <- lm(log_desSales ~ Promotion + timeindex + prolag1, data = bluestem)
+summary(mtp.fit.5_t)
+mtp.fit.6_t <- lm(log_desSales ~ Promotion + timeindex + prolag1 + prolag2, data = bluestem)
+summary(mtp.fit.6_t)
 ```
